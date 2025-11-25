@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TikTrend — TikTok Hashtag Generator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>TikTrend</h1>
+
+    <section class="card">
+      <h2>Paste caption / write-up</h2>
+      <textarea id="text" placeholder="Write your post caption here..." rows="6"></textarea>
+      <div class="controls">
+        <select id="country">
+          <option value="global">Global</option>
+          <option value="us">US</option>
+          <option value="ng">Nigeria</option>
+          <option value="gb">UK</option>
+        </select>
+        <button id="generateBtn">Generate Hashtags</button>
+      </div>
+      <div id="result" class="result"></div>
+    </section>
+
+    <section class="card">
+      <h2>Current Trending Hashtags (Global)</h2>
+      <button id="refreshTrends">Refresh</button>
+      <div id="trends"></div>
+    </section>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
