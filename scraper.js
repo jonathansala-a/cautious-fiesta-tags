@@ -2,7 +2,7 @@
 import puppeteer from "puppeteer";
 import admin from "firebase-admin";
 import cron from "node-cron";
-import fs from "fs";
+import * as fs from "fs";
 
 if (process.env.SERVICE_ACCOUNT_JSON) {
   const tmpPath = "/tmp/service-account.json";
