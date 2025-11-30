@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TikTok Hashtag Generator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f7f7f7;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #ff0050;
+      color: #fff;
+      padding: 1rem;
+      text-align: center;
+    }
+    main {
+      max-width: 600px;
+      margin: 2rem auto;
+      background: #fff;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      padding: 0.5rem;
+      font-size: 1rem;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      resize: vertical;
+    }
+    select, button {
+      padding: 0.5rem;
+      margin-top: 1rem;
+      font-size: 1rem;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #ff0050;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #e60045;
+    }
+    .hashtags {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #f0f0f0;
+      border-radius: 4px;
+      word-wrap: break-word;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TikTok Hashtag Generator</h1>
+  </header>
+  <main>
+    <label for="country">Select Country:</label>
+    <select id="country">
+      <option value="global">Global</option>
+      <option value="US">United States</option>
+      <option value="UK">United Kingdom</option>
+      <option value="NG">Nigeria</option>
+      <option value="IN">India</option>
+      <option value="DE">Germany</option>
+      <option value="CA">Canada</option>
+    </select>
+
+    <label for="text">Enter your text:</label>
+    <textarea id="text" placeholder="Type your caption or description here..."></textarea>
+
+    <button id="generate">Generate Hashtags</button>
+
+    <div class="hashtags" id="output">Your hashtags will appear here...</div>
+  </main>
+
+  <script>
+    const btn = document.getElementById("generate");
+    const output = document.getElementById("output");
+
+    btn.addEventListener("click", async () => {
+      const text = document.getElementById("text").value.trim();
+      const country = document.getElementById("country").value;
+
+      if (!text) {
+        output.innerHTML = "Please enter some text!";
+        return;
+      }
+
+      output.innerHTML = "Generating hashtags...";
+
+      try {
+        const res = await fetch("https://cautious-fiesta-tags.onrender.com/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, country, limit: 12 })
+        });
+
+        if (!res.ok) throw new Error("Failed to generate hashtags");
+
+        const data = await res.json();
+        if (data.generated && data.generated.length) {
+          output.innerHTML = data.generated.join(" ");
+        } else {
+          output.innerHTML = "No hashtags generated. Try again!";
+        }
+      } catch (err) {
+        output.innerHTML = "Error: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>
