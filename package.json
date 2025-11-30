@@ -16,6 +16,6 @@
     "node-cron": "^3.0.2",
     "sanitize-html": "^2.9.0",
     "natural": "^6.5.0",
-    "rate-limiter-flexible": "^2.4.5"
+    "rate-limiter-flexible": "^2.4.3"
   }
 }
