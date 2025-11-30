@@ -11,7 +11,7 @@ import fs from "fs";
 
 const PORT = process.env.PORT || 8000;
 
-// FIREBASE SERVICE ACCOUNT
+// FIREBASE
 if (process.env.SERVICE_ACCOUNT_JSON) {
   const tmpPath = "/tmp/service-account.json";
   fs.writeFileSync(tmpPath, process.env.SERVICE_ACCOUNT_JSON);
@@ -38,7 +38,6 @@ const limiter = new RateLimiterMemory({
 const app = express();
 app.use(cors());
 app.use(bodyParser.json({ limit: "1mb" }));
-
 app.use(async (req, res, next) => {
   try {
     await limiter.consume(req.ip);
@@ -49,7 +48,7 @@ app.use(async (req, res, next) => {
 });
 
 // ---------------------------
-// TRENDING HASHTAGS HELPER
+// TRENDING HELPERS
 // ---------------------------
 async function getTrending(country = "global") {
   const docRef = db.collection("trending").doc(country.toLowerCase());
@@ -58,9 +57,6 @@ async function getTrending(country = "global") {
   return snap.data();
 }
 
-// ---------------------------
-// KEYWORD EXTRACTION
-// ---------------------------
 function extractKeywords(text, top = 10) {
   const clean = sanitizeHtml(text, { allowedTags: [], allowedAttributes: {} })
     .replace(/\s+/g, " ")
@@ -77,8 +73,10 @@ function extractKeywords(text, top = 10) {
 }
 
 // ---------------------------
-// ENDPOINT: GET /trending
+// ENDPOINTS
 // ---------------------------
+
+// GET /trending?country=XX
 app.get("/trending", async (req, res) => {
   try {
     const country = (req.query.country || "global").toLowerCase();
@@ -90,9 +88,7 @@ app.get("/trending", async (req, res) => {
   }
 });
 
-// ---------------------------
-// ENDPOINT: POST /generate
-// ---------------------------
+// POST /generate { text, country, limit }
 app.post("/generate", async (req, res) => {
   try {
     const { text = "", country = "global", limit = 12 } = req.body || {};
@@ -100,9 +96,8 @@ app.post("/generate", async (req, res) => {
       return res.status(400).json({ error: "Provide text" });
 
     const keywords = extractKeywords(text, 10);
-    const trendDoc = await getTrending(country);
+    const trendDoc = await getTrending(country.toLowerCase());
     const trendList = (trendDoc.hashtags || []).map(h => h.tag.toLowerCase());
-
     const candidates = new Set();
 
     keywords.forEach(k => {
@@ -142,7 +137,7 @@ app.post("/generate", async (req, res) => {
 // SCRAPER FUNCTION
 // ---------------------------
 async function fetchTrendingForCountry(countryCode = "global") {
-  console.log(`⏳ Starting scrape for: ${countryCode}`);
+  console.log(`⏳ Scraping hashtags for: ${countryCode}`);
   const browser = await puppeteer.launch({
     headless: true,
     args: [
@@ -160,7 +155,12 @@ async function fetchTrendingForCountry(countryCode = "global") {
         "(KHTML, like Gecko) Chrome/118.0 Safari/537.36"
     );
 
-    const url = "https://www.tiktok.com/discover";
+    // TikTok trending page (global fallback)
+    const url =
+      countryCode === "global"
+        ? "https://www.tiktok.com/discover"
+        : `https://www.tiktok.com/tag/${countryCode}`;
+
     await page.goto(url, { waitUntil: "networkidle2", timeout: 90000 });
     await page.waitForTimeout(5000);
 
@@ -208,19 +208,20 @@ async function fetchTrendingForCountry(countryCode = "global") {
 
     console.log(`✅ Saved ${hashtags.length} hashtags for ${countryCode}`);
   } catch (err) {
-    console.error("❌ SCRAPER ERROR:", err.message || err);
+    console.error("❌ Scraper error:", err.message || err);
   } finally {
     await browser.close();
   }
 }
 
 // ---------------------------
-// NEW ENDPOINT: POST /scrape
+// NEW ENDPOINT: POST /scrape?country=XX
 // ---------------------------
 app.post("/scrape", async (req, res) => {
   try {
-    await fetchTrendingForCountry("global");
-    res.json({ status: "success", message: "Scrape completed" });
+    const country = (req.query.country || "global").toLowerCase();
+    await fetchTrendingForCountry(country);
+    res.json({ status: "success", country });
   } catch (err) {
     console.error("❌ /scrape error:", err);
     res.status(500).json({ error: err.message || "Scrape failed" });
