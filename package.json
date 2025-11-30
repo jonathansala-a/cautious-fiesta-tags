@@ -4,7 +4,9 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "scrape": "node server.js", 
+    "postinstall": "echo 'No Puppeteer needed for RapidAPI scraper'"
   },
   "dependencies": {
     "express": "^4.21.1",
@@ -14,9 +16,7 @@
     "node-fetch": "^3.3.2",
     "sanitize-html": "^2.13.0",
     "natural": "^6.5.0",
-    "rate-limiter-flexible": "^2.4.1"
-  },
-  "engines": {
-    "node": ">=22.0.0"
+    "rate-limiter-flexible": "^2.4.1",
+    "node-cron": "^3.0.3"
   }
 }
