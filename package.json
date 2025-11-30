@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "scrape": "node scraper.js"
+    "scrape": "node scraper.js",
+    "postinstall": "npx puppeteer install"
   },
   "dependencies": {
     "express": "^4.21.1",
