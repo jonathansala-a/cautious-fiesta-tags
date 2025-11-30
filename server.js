@@ -1,4 +1,3 @@
-// server.js
 import express from "express";
 import bodyParser from "body-parser";
 import cors from "cors";
@@ -6,12 +5,14 @@ import admin from "firebase-admin";
 import { RateLimiterMemory } from "rate-limiter-flexible";
 import sanitizeHtml from "sanitize-html";
 import natural from "natural";
-import puppeteer from "puppeteer-core";
+import fetch from "node-fetch"; // for RapidAPI requests
 import fs from "fs";
 
 const PORT = process.env.PORT || 8000;
 
+// ---------------------------
 // FIREBASE
+// ---------------------------
 if (process.env.SERVICE_ACCOUNT_JSON) {
   const tmpPath = "/tmp/service-account.json";
   fs.writeFileSync(tmpPath, process.env.SERVICE_ACCOUNT_JSON);
@@ -25,7 +26,6 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore();
-const SCRAPE_INTERVAL_MIN = parseInt(process.env.SCRAPE_INTERVAL_MIN || "60");
 
 // ---------------------------
 // RATE LIMITER
@@ -50,8 +50,8 @@ app.use(async (req, res, next) => {
 // ---------------------------
 // TRENDING HELPERS
 // ---------------------------
-async function getTrending(country = "global") {
-  const docRef = db.collection("trending").doc(country.toLowerCase());
+async function getTrending(country = "US") {
+  const docRef = db.collection("trending").doc(country.toUpperCase());
   const snap = await docRef.get();
   if (!snap.exists) return { updatedAt: null, hashtags: [] };
   return snap.data();
@@ -73,13 +73,32 @@ function extractKeywords(text, top = 10) {
 }
 
 // ---------------------------
+// RapidAPI TikTok trending function
+// ---------------------------
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
+const RAPIDAPI_HOST = process.env.RAPIDAPI_HOST; // e.g., tiktok-trending-hashtags.p.rapidapi.com
+
+async function fetchTrendingFromAPI(country = "US") {
+  const url = `https://${RAPIDAPI_HOST}/trending?country=${country}`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      "X-RapidAPI-Key": RAPIDAPI_KEY,
+      "X-RapidAPI-Host": RAPIDAPI_HOST,
+    },
+  });
+  const data = await res.json();
+  return data.hashtags || [];
+}
+
+// ---------------------------
 // ENDPOINTS
 // ---------------------------
 
 // GET /trending?country=XX
 app.get("/trending", async (req, res) => {
   try {
-    const country = (req.query.country || "global").toLowerCase();
+    const country = (req.query.country || "US").toUpperCase();
     const data = await getTrending(country);
     res.json(data);
   } catch (err) {
@@ -91,13 +110,13 @@ app.get("/trending", async (req, res) => {
 // POST /generate { text, country, limit }
 app.post("/generate", async (req, res) => {
   try {
-    const { text = "", country = "global", limit = 12 } = req.body || {};
+    const { text = "", country = "US", limit = 12 } = req.body || {};
     if (!text || text.trim().length < 3)
       return res.status(400).json({ error: "Provide text" });
 
     const keywords = extractKeywords(text, 10);
-    const trendDoc = await getTrending(country.toLowerCase());
-    const trendList = (trendDoc.hashtags || []).map(h => h.tag.toLowerCase());
+    const trendDoc = await getTrending(country.toUpperCase());
+    const trendList = (trendDoc.hashtags || []).map(h => h.toLowerCase());
     const candidates = new Set();
 
     keywords.forEach(k => {
@@ -133,98 +152,24 @@ app.post("/generate", async (req, res) => {
   }
 });
 
-// ---------------------------
-// SCRAPER FUNCTION
-// ---------------------------
-async function fetchTrendingForCountry(countryCode = "global") {
-  console.log(`⏳ Scraping hashtags for: ${countryCode}`);
-  const browser = await puppeteer.launch({
-  headless: true,
-  executablePath: "/usr/bin/chromium-browser", // important for Render free
-  args: [
-    "--no-sandbox",
-    "--disable-setuid-sandbox",
-    "--disable-blink-features=AutomationControlled",
-    "--disable-dev-shm-usage",
-  ],
-});
+// POST /scrape?country=XX
+app.post("/scrape", async (req, res) => {
   try {
-    const page = await browser.newPage();
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-        "(KHTML, like Gecko) Chrome/118.0 Safari/537.36"
-    );
+    const country = (req.query.country || "US").toUpperCase();
+    const hashtags = await fetchTrendingFromAPI(country);
 
-    // TikTok trending page (global fallback)
-    const url =
-      countryCode === "global"
-        ? "https://www.tiktok.com/discover"
-        : `https://www.tiktok.com/tag/${countryCode}`;
-
-    await page.goto(url, { waitUntil: "networkidle2", timeout: 90000 });
-    await page.waitForTimeout(5000);
-
-    const allText = await page.evaluate(() => document.body.innerText);
-    const counts = {};
-    allText.match(/#([A-Za-z0-9_]+)/g)?.forEach(tag => {
-      const key = tag.toLowerCase();
-      counts[key] = (counts[key] || 0) + 1;
-    });
-
-    const tagsFromDOM = await page.evaluate(() => {
-      const found = [];
-      const selectors = [
-        "[data-e2e='trending-item'] a",
-        "[data-e2e='suggested-hashtag']",
-        ".tiktok-1qb12g8-SpanText",
-        "a[href*='/tag/']",
-      ];
-      selectors.forEach(sel => {
-        document.querySelectorAll(sel).forEach(node => {
-          const t = node.innerText || node.textContent;
-          if (t && t.startsWith("#") && t.length < 50) found.push(t.trim());
-        });
-      });
-      return found;
-    });
-
-    tagsFromDOM.forEach(tag => {
-      const key = tag.toLowerCase();
-      counts[key] = (counts[key] || 0) + 5;
-    });
-
-    const hashtags = Object.entries(counts)
-      .map(([tag, score]) => ({ tag, score }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 150);
-
-    const docRef = db.collection("trending").doc(countryCode);
+    const docRef = db.collection("trending").doc(country);
     await docRef.set({
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       hashtags,
       count: hashtags.length,
-      source: "tiktok",
+      source: "rapidapi",
     });
 
-    console.log(`✅ Saved ${hashtags.length} hashtags for ${countryCode}`);
-  } catch (err) {
-    console.error("❌ Scraper error:", err.message || err);
-  } finally {
-    await browser.close();
-  }
-}
-
-// ---------------------------
-// NEW ENDPOINT: POST /scrape?country=XX
-// ---------------------------
-app.post("/scrape", async (req, res) => {
-  try {
-    const country = (req.query.country || "global").toLowerCase();
-    await fetchTrendingForCountry(country);
-    res.json({ status: "success", country });
+    res.json({ status: "success", country, hashtags });
   } catch (err) {
     console.error("❌ /scrape error:", err);
-    res.status(500).json({ error: err.message || "Scrape failed" });
+    res.status(500).json({ error: err.message });
   }
 });
 
