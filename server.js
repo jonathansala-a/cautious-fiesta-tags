@@ -6,7 +6,7 @@ import admin from "firebase-admin";
 import { RateLimiterMemory } from "rate-limiter-flexible";
 import sanitizeHtml from "sanitize-html";
 import natural from "natural";
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-core";
 import fs from "fs";
 
 const PORT = process.env.PORT || 8000;
@@ -139,15 +139,15 @@ app.post("/generate", async (req, res) => {
 async function fetchTrendingForCountry(countryCode = "global") {
   console.log(`⏳ Scraping hashtags for: ${countryCode}`);
   const browser = await puppeteer.launch({
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-blink-features=AutomationControlled",
-      "--disable-dev-shm-usage",
-    ],
-  });
-
+  headless: true,
+  executablePath: "/usr/bin/chromium-browser", // important for Render free
+  args: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-blink-features=AutomationControlled",
+    "--disable-dev-shm-usage",
+  ],
+});
   try {
     const page = await browser.newPage();
     await page.setUserAgent(
