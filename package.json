@@ -1,22 +1,22 @@
 {
   "name": "tiktok-hashtag-service",
   "version": "1.0.0",
-  "main": "server.js",
   "type": "module",
+  "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "scrape": "node scraper.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.21.1",
     "cors": "^2.8.5",
     "body-parser": "^1.20.3",
     "firebase-admin": "^12.6.0",
-    "node-fetch": "3.3.2",
-    "puppeteer": "^23.7.1",
-    "node-cron": "^3.0.3",
+    "node-fetch": "^3.3.2",
     "sanitize-html": "^2.13.0",
     "natural": "^6.5.0",
-    "rate-limiter-flexible": "2.4.1"
+    "rate-limiter-flexible": "^2.4.1"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   }
 }
